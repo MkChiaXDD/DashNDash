@@ -6,11 +6,14 @@ public class PlayerController : MonoBehaviour
 {
     [SerializeField] private SpeedManager speedManager;
     [SerializeField] private float dashDuration = 0.2f;
+    [SerializeField] private float scalePercent = 0.1f;
 
     private Rigidbody2D _rb;
     private Vector2 aimDir = Vector2.right;
     private bool isDashing;
     private float normalGrav;
+
+    private DashManager dashMgr;
 
     private Vector2 DashDist => speedManager != null
         ? speedManager.GetDashDistance()
@@ -18,7 +21,9 @@ public class PlayerController : MonoBehaviour
 
     void Start()
     {
+        transform.ScaleToScreenHeightPercent(scalePercent);
         _rb = GetComponent<Rigidbody2D>();
+        dashMgr = FindFirstObjectByType<DashManager>();
         normalGrav = _rb.gravityScale;
     }
 
@@ -26,13 +31,21 @@ public class PlayerController : MonoBehaviour
     {
         if (isDashing) return;
 
-        // aim at cursor/tap
-        Vector3 wp = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        Vector2 dir = wp - transform.position;
-        if (dir.sqrMagnitude > 0.001f) aimDir = dir.normalized;
+        // aim at cursor/tap � do it in Vector2 so subtraction isn't ambiguous
+        Vector2 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 myPosition = (Vector2)transform.position;
+        Vector2 dir = mouseWorld - myPosition;
+        if (dir.sqrMagnitude > 0.001f)
+            aimDir = dir.normalized;
 
         if (Input.GetKeyDown(KeyCode.Space))
-            StartCoroutine(Dash());
+        {
+            if (dashMgr.GetDashCount() > 0)
+            {
+                StartCoroutine(Dash());
+                dashMgr.UseDash();
+            }
+        }
     }
 
     IEnumerator Dash()
@@ -42,7 +55,8 @@ public class PlayerController : MonoBehaviour
         _rb.linearVelocity = Vector2.zero;
 
         Vector2 start = _rb.position;
-        Vector2 dashVec = new Vector2(aimDir.x * DashDist.x, aimDir.y * DashDist.y);
+        float dist = DashDist.x;        // same on X and Y
+        Vector2 dashVec = aimDir * dist;
         Vector2 end = start + dashVec;
         float t = 0f;
 
@@ -61,13 +75,13 @@ public class PlayerController : MonoBehaviour
 
     void OnDrawGizmos()
     {
-        if (!Application.isPlaying) return;
+        if (!Application.isPlaying || speedManager == null) return;
+
         Gizmos.color = Color.cyan;
         Vector3 from = transform.position;
-        Vector2 dashVec = new Vector2(aimDir.x * DashDist.x, aimDir.y * DashDist.y);
-        Vector3 to = from + (Vector3)dashVec;
+        float dist = DashDist.x;
+        Vector3 to = from + (Vector3)(aimDir * dist);
         Gizmos.DrawLine(from, to);
         Gizmos.DrawSphere(to, 0.1f);
     }
 }
-

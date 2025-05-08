@@ -12,6 +12,15 @@ public class BorderController : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float fieldWidthPercent = 0.75f;
 
+    // remember floor’s scene position so we never move it
+    private Vector3 _floorOriginalPos;
+
+    void Awake()
+    {
+        if (floor)
+            _floorOriginalPos = floor.transform.position;
+    }
+
     void OnValidate() => UpdateBorders();
     void Start() => UpdateBorders();
     void LateUpdate() { if (Application.isPlaying) UpdateBorders(); }
@@ -21,49 +30,43 @@ public class BorderController : MonoBehaviour
         var cam = Camera.main;
         if (cam == null) return;
 
-        // screen dims in world units
         float worldH = cam.orthographicSize * 2f;
         float worldW = worldH * cam.aspect;
         float fieldW = worldW * fieldWidthPercent;
         Vector3 camPos = cam.transform.position;
 
-        // ?? FLOOR ??
+        // —— FLOOR —— (only scale X, never move)
         if (floor)
         {
             var bc = floor.GetComponent<BoxCollider2D>();
             if (bc)
             {
-                // scale X so floor width = fieldW
                 Vector3 ls = floor.transform.localScale;
                 ls.x = fieldW / bc.size.x;
                 floor.transform.localScale = ls;
 
-                // position at bottom of camera view
-                float halfH = (bc.size.y * ls.y) / 2f;
-                float y = camPos.y - worldH / 2f + halfH;
-                floor.transform.position = new Vector3(camPos.x, y, floor.transform.position.z);
+                // restore original position
+                floor.transform.position = _floorOriginalPos;
             }
         }
 
-        // ?? LEFT WALL ??
+        // —— LEFT WALL ——
         if (leftWall)
         {
             var bc = leftWall.GetComponent<BoxCollider2D>();
             if (bc)
             {
-                // scale Y to full screen height
                 Vector3 ls = leftWall.transform.localScale;
                 ls.y = worldH / bc.size.y;
                 leftWall.transform.localScale = ls;
 
-                // position at left edge of the playfield
                 float halfW = (bc.size.x * ls.x) / 2f;
                 float x = camPos.x - fieldW / 2f - halfW;
                 leftWall.transform.position = new Vector3(x, camPos.y, leftWall.transform.position.z);
             }
         }
 
-        // ?? RIGHT WALL ??
+        // —— RIGHT WALL ——
         if (rightWall)
         {
             var bc = rightWall.GetComponent<BoxCollider2D>();
